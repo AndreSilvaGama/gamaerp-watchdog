@@ -15,7 +15,8 @@ jobs:
     steps:
       - name: Sonda ERP + Neon (endpoint publico que toca o banco)
         run: |
-          URL="https://gamaerp.com.br/api/public/pacotes"
+          # *** TESTE CONTROLADO (sera revertido): URL proposital que falha, para validar o e-mail de alerta ***
+          URL="https://gamaerp.com.br/__watchdog_selftest_forcar_falha__"
           ok=0
           for i in 1 2 3; do
             code=$(curl -s -o /tmp/body.txt -w "%{http_code}" --max-time 25 "$URL" || echo "000")
@@ -25,7 +26,7 @@ jobs:
               break
             fi
             echo "Tentativa $i: FALHOU (HTTP $code)."
-            [ "$i" -lt 3 ] && sleep 30
+            [ "$i" -lt 3 ] && sleep 15
           done
           if [ "$ok" != "1" ]; then
             echo "::error::ERP/Neon NAO respondeu OK apos 3 tentativas em $URL. Verifique: (1) Vercel no ar? (2) Neon suspenso por limite/pagamento? Banner de limite ou cartao vencido derrubam o banco."
