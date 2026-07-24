@@ -1,0 +1,33 @@
+name: Vigia GamaERP (Vercel + Neon)
+
+# Roda na infra do GitHub — INDEPENDENTE da Vercel e do Neon. Se o ERP ou o banco
+# cairem (inclusive por pagamento/limite), este vigia continua rodando e AVISA.
+# A cada falha, o GitHub notifica o dono do repositorio (Andre) por e-mail.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # a cada 15 min (horario UTC; o GitHub pode atrasar sob carga)
+  workflow_dispatch: {}       # permite disparar manualmente pelo botao "Run workflow"
+
+jobs:
+  sonda:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sonda ERP + Neon (endpoint publico que toca o banco)
+        run: |
+          URL="https://gamaerp.com.br/api/public/pacotes"
+          ok=0
+          for i in 1 2 3; do
+            code=$(curl -s -o /tmp/body.txt -w "%{http_code}" --max-time 25 "$URL" || echo "000")
+            if [ "$code" = "200" ] && grep -q '"id"' /tmp/body.txt; then
+              echo "Tentativa $i: OK (HTTP 200 + JSON do banco). Vercel e Neon de pe."
+              ok=1
+              break
+            fi
+            echo "Tentativa $i: FALHOU (HTTP $code)."
+            [ "$i" -lt 3 ] && sleep 30
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::ERP/Neon NAO respondeu OK apos 3 tentativas em $URL. Verifique: (1) Vercel no ar? (2) Neon suspenso por limite/pagamento? Banner de limite ou cartao vencido derrubam o banco."
+            exit 1
+          fi
